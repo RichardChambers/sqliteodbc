@@ -47,6 +47,10 @@ See Stackoverflow post for a problem with a link error.
 
 https://stackoverflow.com/questions/69492118/unresolved-external-symbol-vsnwprintf-s-compiling-odbc-driver-with-nmake-vs-20
 
+See this Microsoft documentation about Visual Studio runtime libraries.
+
+https://learn.microsoft.com/en-us/cpp/c-runtime-library/crt-library-features?view=msvc-170
+
  -  -GX flag is deprecated. Use -EHsc for exception handling behavior
  - add libraries vcruntime.lib ucrt.lib to DLLLFLAGS 
    see https://devblogs.microsoft.com/cppblog/introducing-the-universal-crt/
