@@ -396,3 +396,12 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+/VERSION_C
+/*.exe
+/sqlite3odbc.res
+/*.exp
+/*.dll
+/*.lib
+/resource3.h
+/sqlite3.c
+/sqlite3.h

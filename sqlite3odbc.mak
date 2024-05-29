@@ -13,19 +13,31 @@ CDEBUG=		-Zi
 LDEBUG=		/RELEASE
 !ENDIF
 
-CFLAGS=		-I. -Gs -GX -D_WIN32 -D_DLL -nologo $(CDEBUG) \
+# see SO post
+#   https://stackoverflow.com/questions/69492118/unresolved-external-symbol-vsnwprintf-s-compiling-odbc-driver-with-nmake-vs-20
+#
+# 2021-10-07 RC: -GX flag is deprecated.
+#                Use -EHsc for exception handling behavior
+# 2021-10-07 RC: add libraries vcruntime.lib ucrt.lib to DLLLFLAGS
+#                see https://devblogs.microsoft.com/cppblog/introducing-the-universal-crt/
+# 2021-10-07 RC: add libraries legacy_stdio_definitions.lib legacy_stdio_wide_specifiers.lib
+#                to correct link error LNK2019: unresolved external with odbccp32.lib
+#                error LNK2019: unresolved external symbol __vsnwprintf_s referenced in function _StringCchPrintfW
+#                added new definition EXELIBS
+CFLAGS=		-I. -Gs -EHsc -D_WIN32 -D_DLL -nologo $(CDEBUG) \
 		-DHAVE_SQLITE3COLUMNTABLENAME=1 \
 		-DHAVE_SQLITE3PREPAREV2=1 \
 		-DHAVE_SQLITE3VFS=1 \
 		-DHAVE_SQLITE3LOADEXTENSION=1 \
 		-DSQLITE_ENABLE_COLUMN_METADATA=1 \
 		-DWITHOUT_SHELL=1
-CFLAGSEXE=	-I. -Gs -GX -D_WIN32 -nologo $(CDEBUG)
+CFLAGSEXE=	-I. -Gs -EHsc -D_WIN32 -nologo $(CDEBUG)
 DLLLFLAGS=	/NODEFAULTLIB $(LDEBUG) /NOLOGO /MACHINE:IX86 \
 		/SUBSYSTEM:WINDOWS /DLL
-DLLLIBS=	msvcrt.lib odbccp32.lib kernel32.lib \
-		user32.lib comdlg32.lib
-
+DLLLIBS=	ucrt.lib vcruntime.lib msvcrt.lib odbccp32.lib kernel32.lib \
+		user32.lib comdlg32.lib legacy_stdio_definitions.lib legacy_stdio_wide_specifiers.lib
+EXELIBS=    odbc32.lib odbccp32.lib kernel32.lib user32.lib \
+        legacy_stdio_definitions.lib legacy_stdio_wide_specifiers.lib
 DRVDLL=		sqlite3odbc.dll
 
 OBJECTS=	sqlite3odbc.obj sqlite3.obj
@@ -51,15 +63,13 @@ uninst.exe:	inst.exe
 		copy inst.exe uninst.exe
 
 inst.exe:	inst.c
-		$(CC) $(CFLAGSEXE) inst.c odbc32.lib odbccp32.lib \
-		kernel32.lib user32.lib
+		$(CC) $(CFLAGSEXE) inst.c $(EXELIBS)
 
 remdsn.exe:	adddsn.exe
 		copy adddsn.exe remdsn.exe
 
 adddsn.exe:	adddsn.c
-		$(CC) $(CFLAGSEXE) adddsn.c odbc32.lib odbccp32.lib \
-		kernel32.lib user32.lib
+		$(CC) $(CFLAGSEXE) adddsn.c $(EXELIBS)
 
 remsysdsn.exe:	adddsn.exe
 		copy adddsn.exe remsysdsn.exe

@@ -22,6 +22,14 @@ In addition to the source code, since I'm using GitHub I've created several addi
  - README.md 
  - .gitignore
 
+### SQLite 3 amalgamation
+
+The source code for SQLITE 3 is at URL: https://sqlite.org/download.html
+
+You will need to download the amalgamation zip file which contains the two files you
+will need: sqlite3.c and sqlite3.h. These files contain the SQLite 3 source code in
+a single file which makes building with SQLite 3 source easier.
+
 ## Tool chain
 
 ### 05/28/2020
@@ -35,3 +43,14 @@ environment variables such as PATH so that nmake.exe and the compiler and librar
 
 ## Visual Studio 2019 Community Edition notes
 
+See Stackoverflow post for a problem with a link error.
+
+https://stackoverflow.com/questions/69492118/unresolved-external-symbol-vsnwprintf-s-compiling-odbc-driver-with-nmake-vs-20
+
+ -  -GX flag is deprecated. Use -EHsc for exception handling behavior
+ - add libraries vcruntime.lib ucrt.lib to DLLLFLAGS 
+   see https://devblogs.microsoft.com/cppblog/introducing-the-universal-crt/
+ -  add libraries legacy_stdio_definitions.lib legacy_stdio_wide_specifiers.lib
+    to correct link error LNK2019: unresolved external with odbccp32.lib
+    error LNK2019: unresolved external symbol __vsnwprintf_s referenced in function _StringCchPrintfW
+ - added new definition EXELIBS
