@@ -396,12 +396,14 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# additional files built by command line compile with nmake
 /VERSION_C
-/*.exe
+*.exe
 /sqlite3odbc.res
-/*.exp
-/*.dll
-/*.lib
+*.exp
+*.dll
+*.lib
 /resource3.h
 /sqlite3.c
 /sqlite3.h
