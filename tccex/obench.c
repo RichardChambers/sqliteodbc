@@ -1,5 +1,18 @@
 /*
  *  Adapted from JDBCBench.java
+ *
+ * WARNING: ODBC library link order is important to prevent SQL_INVALID_HANDLE
+ *          result code from functions SQLDrivers() and SQLDriverConnect().
+ *          See make file bench.mak.
+ * 
+ *          See SO post about ODBC errors.
+ *            https://stackoverflow.com/questions/52506758/microsoft-odbc-cannot-create-valid-handle
+ * 
+ * Sample usage with SQLite ODBC driver.
+ *    obench -- -dsn "Driver={SQLite ODBC Driver};Database=\TEMPDISK\BENCH.DB" -init -v -tpc 200 -clients 4
+ * 
+ * Updates:
+ * 06-04-2024 : R. Chambers     : added new function ListDrivers() 
  */
 
 #ifdef _WIN32
@@ -142,30 +155,121 @@ static void reportDone()
     *failed_transactions = 0;
 }
 
+int rcMessage (const char *pmsg, SQLRETURN rc) {
+        switch (rc) {
+        case SQL_SUCCESS:
+            // fprintf (stderr, "  %s  SQL_SUCCESS\n", pmsg);
+            break;
+        case SQL_SUCCESS_WITH_INFO:
+                fprintf (stderr, "  %s  SQL_SUCCESS_WITH_INFO\n", pmsg);
+            break;
+        case SQL_NO_DATA:
+                fprintf (stderr, "  %s  SQL_NO_DATA\n", pmsg);
+            break;
+        case SQL_ERROR:
+                fprintf (stderr, "  %s  SQL_ERROR\n", pmsg);
+            break;
+        case SQL_INVALID_HANDLE:
+                fprintf (stderr, "  %s  SQL_INVALID_HANDLE\n", pmsg);
+            break;
+        case SQL_STILL_EXECUTING:
+                fprintf (stderr, "  %s  SQL_STILL_EXECUTING\n", pmsg);
+            break;
+        default:
+            fprintf(stderr, "  %s  default 0x%x\n", pmsg, rc);
+            break;
+    }
+    return 0;
+}
 static void createDatabase()
 {
     int dotrans = 0, i;
     long accountsnb = 0;
-    SQLHENV env;
-    SQLHDBC dbc;
+    SQLHENV env = NULL;
+    SQLHDBC dbc = NULL;
     SQLRETURN rc;
     SQLHSTMT s;
     char sqlbuf[1024];
 
+    fprintf(stderr, "CreateDatabase dsn=%s\n", dsn);
+#if 0
     rc = SQLAllocEnv(&env);
     if (!SQL_SUCCEEDED(rc)) {
         fprintf(stderr, "AllocEnv failed\n");
 	exit(1);
     }
+    fprintf(stderr, "SQLAllocConnect() ");
     rc = SQLAllocConnect(env, &dbc);
+    switch (rc) {
+        case SQL_SUCCESS:
+            fprintf (stderr, "    SQL_SUCCESS\n");
+            break;
+        case SQL_SUCCESS_WITH_INFO:
+                fprintf (stderr, "    SQL_SUCCESS_WITH_INFO\n");
+            break;
+        case SQL_NO_DATA:
+                fprintf (stderr, "    SQL_NO_DATA\n");
+            break;
+        case SQL_ERROR:
+                fprintf (stderr, "    SQL_ERROR\n");
+            break;
+        case SQL_INVALID_HANDLE:
+                fprintf (stderr, "    SQL_INVALID_HANDLE\n");
+            break;
+        case SQL_STILL_EXECUTING:
+                fprintf (stderr, "    SQL_STILL_EXECUTING\n");
+            break;
+        default:
+            fprintf(stderr, "    default 0x%x\n", rc);
+            break;
+    }
+#else
+    rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+    rcMessage ("SQLAllocHandle(SQL_HANDLE_ENV)", rc);
+    rc= SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER) SQL_OV_ODBC3, 0);
+    rcMessage ("SQLSetEnvAttr()", rc);
+    rc = SQLAllocHandle(SQL_HANDLE_DBC, env, &dbc);
+    rcMessage ("SQLAllocHandle(SQL_HANDLE_DBC)", rc);
+#endif
     if (!SQL_SUCCEEDED(rc)) {
         fprintf(stderr, "AllocConnect failed\n");
 	exit(1);
     }
+    fprintf(stderr, "SQLDriverConnect() ");
     rc = SQLDriverConnect(dbc, NULL, (SQLCHAR *) dsn, SQL_NTS, NULL, 0, NULL,
-			  SQL_DRIVER_COMPLETE | SQL_DRIVER_NOPROMPT);
+			  SQL_DRIVER_COMPLETE /* | SQL_DRIVER_NOPROMPT */);
+    switch (rc) {
+        case SQL_SUCCESS:
+            fprintf (stderr, "    SQL_SUCCESS\n");
+            break;
+        case SQL_SUCCESS_WITH_INFO:
+                fprintf (stderr, "    SQL_SUCCESS_WITH_INFO\n");
+            break;
+        case SQL_NO_DATA:
+                fprintf (stderr, "    SQL_NO_DATA\n");
+            break;
+        case SQL_ERROR:
+                fprintf (stderr, "    SQL_ERROR\n");
+            break;
+        case SQL_INVALID_HANDLE:
+                fprintf (stderr, "    SQL_INVALID_HANDLE\n");
+            break;
+        case SQL_STILL_EXECUTING:
+                fprintf (stderr, "    SQL_STILL_EXECUTING\n");
+            break;
+        default:
+            fprintf(stderr, "    default 0x%x\n", rc);
+            break;
+    }
     if (!SQL_SUCCEEDED(rc)) {
-        fprintf(stderr, "DriverConnect failed\n");
+        SQLCHAR     SQLState[8] = {0};
+        SQLINTEGER  NativeErrorPtr = 0;
+        SQLSMALLINT RecNumber = 1;
+        SQLCHAR     MessageText[256] = {0};
+        SQLSMALLINT  TextLength = 0, BufferLength = 255;
+
+        SQLGetDiagRec(SQL_HANDLE_DBC, dbc, RecNumber, SQLState, &NativeErrorPtr, MessageText, BufferLength, &TextLength);
+        fprintf(stderr, "DriverConnect failed rc 0x%x SQLState = %x%x TextLength = %d Message=%s\n", rc, SQLState[0], SQLState[1], TextLength, MessageText);
 	exit(1);
     }
     rc = SQLSetConnectOption(dbc, SQL_AUTOCOMMIT, SQL_AUTOCOMMIT_OFF);
@@ -444,6 +548,8 @@ static int runClientThread(void *args)
     SQLRETURN rc;
     int ntrans = n_txn_per_client;
 
+    fprintf(stderr, "runClientThread \n");
+
     rc = SQLAllocEnv(&env);
     if (!SQL_SUCCEEDED(rc)) {
         fprintf(stderr, "AllocEnv failed\n");
@@ -457,7 +563,12 @@ static int runClientThread(void *args)
     rc = SQLDriverConnect(dbc, NULL, (SQLCHAR *) dsn, SQL_NTS, NULL, 0, NULL,
 			  SQL_DRIVER_COMPLETE | SQL_DRIVER_NOPROMPT);
     if (!SQL_SUCCEEDED(rc)) {
-        fprintf(stderr, "DriverConnect failed\n");
+        SQLCHAR     SQLState[8] = {0};
+        SQLINTEGER  NativeErrorPtr = 0;
+        SQLCHAR     MessageText[256] = {0};
+        SQLSMALLINT  TextLength, BufferLength = 255;
+        SQLGetDiagRec(SQL_HANDLE_DBC, dbc, 1, SQLState, &NativeErrorPtr, MessageText, BufferLength, &TextLength);
+        fprintf(stderr, "DriverConnect failed SQLState = %s\n", SQLState);
 	return 1;
     }
     if (transactions) {
@@ -503,6 +614,45 @@ static int runClientThread(void *args)
     return 0;
 }
 
+int ListDrivers () {
+
+     SQLRETURN rc;
+     SQLHENV         env;
+     SQLUSMALLINT    Direction = SQL_FETCH_FIRST;
+     SQLCHAR         DriverDescription[256] = {0};
+     SQLSMALLINT     BufferLength1 = 255;
+     SQLSMALLINT     DescriptionLengthPtr;
+     SQLCHAR         DriverAttributes[512] = {0};
+     SQLSMALLINT     BufferLength2 = 511;
+     SQLSMALLINT     AttributesLengthPtr;
+
+    fprintf (stderr, "ListDrivers()\n");
+
+    rc = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+    rcMessage ("SQLAllocHandle(SQL_HANDLE_ENV)", rc);
+    rc= SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER) SQL_OV_ODBC3, 0);
+    rcMessage ("SQLSetEnvAttr()", rc);
+
+    do {
+        rc = SQLDrivers(  
+        env,  
+        Direction,  
+        DriverDescription,  
+        BufferLength1,  
+        &DescriptionLengthPtr,  
+        DriverAttributes,  
+        BufferLength2,  
+        &AttributesLengthPtr);
+
+        rcMessage ("SQLDrivers()", rc);
+
+        fprintf (stderr, " Driver = %s\n", DriverDescription);
+
+        Direction = SQL_FETCH_NEXT;
+    } while(SQL_SUCCEEDED(rc));
+    
+     return 0;
+}
 
 int main(int argc, char **argv)
 {
@@ -540,6 +690,9 @@ int main(int argc, char **argv)
 	    verbose++;
 	}
     }
+
+    ListDrivers();
+
     if (dsn == NULL) {
         fprintf(stderr, "usage: %s -dsn DSN [-v] [-init] "
 		"[-tpc n] [-clients]\n\n", argv[0]);
@@ -552,15 +705,14 @@ int main(int argc, char **argv)
 
     fprintf(stdout, "Scale factor value: %d\n", tps);
     fprintf(stdout, "Number of clients: %d\n", n_clients);
-    fprintf(stdout, "Number of transactions per client: %d\n\n",
-	    n_txn_per_client);
+    fprintf(stdout, "Number of transactions per client: %d\n\n", n_txn_per_client);
     fflush(stdout);
 
     if (init_db) {
         fprintf(stdout, "Initializing dataset...\n");
-	createDatabase();
+	    createDatabase();
         fprintf(stdout, "done.\n\n");
-	fflush(stdout);
+	    fflush(stdout);
     }
 #ifndef _WIN32
     shmid = shmget(IPC_PRIVATE, 2 * sizeof (int), IPC_CREAT | 0666);
