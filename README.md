@@ -47,6 +47,10 @@ See Stackoverflow post for a problem with a link error.
 
 https://stackoverflow.com/questions/69492118/unresolved-external-symbol-vsnwprintf-s-compiling-odbc-driver-with-nmake-vs-20
 
+See Stackoverflow port for a error when running obench.exe in folder tccex due to library link order
+
+https://stackoverflow.com/questions/52506758/microsoft-odbc-cannot-create-valid-handle
+
 See this Microsoft documentation about Visual Studio runtime libraries.
 
 https://learn.microsoft.com/en-us/cpp/c-runtime-library/crt-library-features?view=msvc-170
